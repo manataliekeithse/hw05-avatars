@@ -14,6 +14,9 @@ app.use(cors());
 
 app.use(express.json());
 
+// tells Express to serve static files from the public directory
+// we need to access the localhost port followed by the directory of the static file and
+// the file name and extension
 app.use(express.static("public"));
 
 app.use("/api/contacts", contactsRouter);

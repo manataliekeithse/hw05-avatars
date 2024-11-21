@@ -13,6 +13,10 @@ import fs from "fs/promises";
 
 const { SECRET_KEY } = process.env;
 
+//1. validate through frontend validation using Joi
+//2. find an existing user to prevent a duplicate email signup
+//3. hash password
+//4. create user
 const signupUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -29,6 +33,10 @@ const signupUser = async (req, res) => {
 
     const hashPassword = await bcrypt.hash(password, 10);
 
+    // the url() function from the gravatar npm package sets the global avatar for the
+    // image associated with the account.
+    //accepts 2 params. first, email. second, object containing http protocol.
+    // this avatar is temporary and placeholder only when the user initially signs up
     const avatarURL = gravatar.url(email, { protocol: "http" });
 
     const newUser = await User.create({
@@ -49,6 +57,11 @@ const signupUser = async (req, res) => {
   }
 };
 
+//1. validate through front end validation using Joi
+//2. find an existing user because existing registered emails can only login
+//3. comparee the user input password vs hash password
+//4. if password is correct, generate JWT token
+//5.find the user in the database and add that token to the DB document
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -129,8 +142,11 @@ const updateUserSubscription = async (req, res) => {
   }
 };
 
+// 1. verify if the token is existing in the request
+// 2. if the token is valid, access the uploaded avatar using the upload.js middleware
 const updateAvatar = async (req, res) => {
   try {
+    // access the authentication token through the req.user
     const { _id } = req.user;
     console.log("User ID:", _id); // Debug log
 
@@ -138,10 +154,13 @@ const updateAvatar = async (req, res) => {
       console.error("No file uploaded");
       return res.status(400).json({ message: "No file uploaded" });
     }
-
+    // uploaded avatar is access through the req.file
     const { path: oldPath, originalname } = req.file;
     console.log("File Path:", oldPath, "Original Filename:", originalname); // Debug log
 
+    // we are reading the image from the temporary path
+    // we are resizing the image to 250px width and 250px height
+    // we are saving the updated resolution to the old temporary path
     await Jimp.read(oldPath)
       .then((image) => {
         console.log("Resizing image"); // Debug log
@@ -150,6 +169,11 @@ const updateAvatar = async (req, res) => {
       })
       .catch((error) => console.log(error));
 
+    // Move the user's avatar from the tmp folder to the public/avatars folder and give it a
+    // unique name for the specific user
+
+    // the unique file name that we will generate is concatenated version of the id of
+    // the user document and the extension of the original image file.
     const extension = path.extname(originalname);
     const filename = `${_id}${extension}`;
     console.log("Generated Filename:", filename);
@@ -158,8 +182,12 @@ const updateAvatar = async (req, res) => {
 
     await fs.rename(oldPath, newPath);
 
+    // construct a new avatar URL
+    // This may not work directly if you are using window OS
+
     const avatarURL = path.join("/avatars", filename);
 
+    // save the newly generated avatar in the database and the public folder
     await User.findByIdAndUpdate(_id, { avatarURL });
     console.log("Avatar URL saved to the database");
     res.status(200).json({ avatarURL });
